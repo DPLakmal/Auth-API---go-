@@ -92,7 +92,7 @@ func main() {
 			userHandler := handlers.NewUserHandler(userRepo)
 		
 			// 7. Build the full Gin router and atomically swap it in
-			fullRouter := router.Setup(authHandler, userHandler, jwtService)
+			fullRouter := router.Setup(authHandler, userHandler, jwtService, cfg.AllowedOrigin)
 			handler.swap(fullRouter)
 		
 			log.Println("Application fully initialized — all API routes are active")

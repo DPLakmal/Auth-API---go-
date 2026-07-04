@@ -12,8 +12,12 @@ func Setup(
 	authHandler *handlers.AuthHandler,
 	userHandler *handlers.UserHandler,
 	jwtService *services.JWTService,
+	allowedOrigin string,
 ) *gin.Engine {
 	r := gin.Default()
+
+	// Apply CORS middleware
+	r.Use(middleware.CORS(allowedOrigin))
 
 	// Health check
 	r.GET("/health", func(c *gin.Context) {

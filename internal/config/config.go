@@ -15,6 +15,7 @@ type Config struct {
 	AccessTokenTTL   time.Duration
 	RefreshTokenTTL  time.Duration
 	Port             string
+	AllowedOrigin    string
 }
 
 // Load reads configuration from a .env file (if present) and environment variables.
@@ -40,6 +41,7 @@ func Load() *Config {
 		AccessTokenTTL:  accessTTL,
 		RefreshTokenTTL: refreshTTL,
 		Port:            getEnv("PORT", "8080"),
+		AllowedOrigin:   getEnv("ALLOWED_ORIGIN", "*"),
 	}
 }
 
