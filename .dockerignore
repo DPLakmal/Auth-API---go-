@@ -1,0 +1,27 @@
+# .dockerignore — keep the build context small and avoid leaking secrets
+
+# Git
+.git
+.gitignore
+
+# Secrets — NEVER bake .env into the image
+.env
+*.env
+
+# Editor / OS noise
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Compiled output
+bin/
+*.exe
+*.out
+
+# Go test cache
+**/*_test.go
+testdata/
+
+# Docs
+*.md

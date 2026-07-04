@@ -1,0 +1,20 @@
+# railway.toml — Railway deployment configuration
+# Docs: https://docs.railway.com/reference/config-as-code
+
+[build]
+# Tell Railway to use the Dockerfile in the project root
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+# Railway injects $PORT automatically — our app reads it from env.
+# Set startCommand only if you need to override the Dockerfile ENTRYPOINT.
+# startCommand = "/server"
+
+# Restart the service automatically on crash
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
+
+# Health check — Railway will poll this endpoint after deploy
+healthcheckPath = "/health"
+healthcheckTimeout = 30
