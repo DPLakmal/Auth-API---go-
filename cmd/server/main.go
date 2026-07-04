@@ -41,10 +41,6 @@ func main() {
 	// 1. Load configuration
 	cfg := config.Load()
 
-	if cfg.JWTSecret == "" {
-		log.Fatal("JWT_SECRET must be set")
-	}
-
 	// 2. Boot a minimal HTTP server immediately so Railway's health check
 	//    gets a 200 while we are still connecting to the database.
 	//    The handler will be swapped to the full Gin router once the DB is ready.
@@ -70,27 +66,50 @@ func main() {
 		}
 	}()
 
-	// 3. Connect to database (with retry — defined in database/db.go).
-	//    The server above continues serving /health during this phase.
-	db := database.Connect(cfg.DatabaseURL)
+	// 3. Validate variables and connect to database
+	var initErr error
 
-	// 4. Wire up repositories
-	userRepo := repository.NewUserRepository(db)
-	tokenRepo := repository.NewTokenRepository(db)
+	if cfg.JWTSecret == "" {
+		initErr = fmt.Errorf("JWT_SECRET environment variable is missing")
+	}
 
-	// 5. Wire up services
-	jwtService := services.NewJWTService(cfg.JWTSecret, cfg.AccessTokenTTL, cfg.RefreshTokenTTL)
-	authService := services.NewAuthService(userRepo, tokenRepo, jwtService)
-
-	// 6. Wire up handlers
-	authHandler := handlers.NewAuthHandler(authService)
-	userHandler := handlers.NewUserHandler(userRepo)
-
-	// 7. Build the full Gin router and atomically swap it in
-	fullRouter := router.Setup(authHandler, userHandler, jwtService)
-	handler.swap(fullRouter)
-
-	log.Println("Application fully initialized — all API routes are active")
+	if initErr == nil {
+		// This blocks and retries for ~60s
+		db, err := database.Connect(cfg.DatabaseURL)
+		if err != nil {
+			initErr = fmt.Errorf("Database connection failed: %v", err)
+		} else {
+			// 4. Wire up repositories
+			userRepo := repository.NewUserRepository(db)
+			tokenRepo := repository.NewTokenRepository(db)
+		
+			// 5. Wire up services
+			jwtService := services.NewJWTService(cfg.JWTSecret, cfg.AccessTokenTTL, cfg.RefreshTokenTTL)
+			authService := services.NewAuthService(userRepo, tokenRepo, jwtService)
+		
+			// 6. Wire up handlers
+			authHandler := handlers.NewAuthHandler(authService)
+			userHandler := handlers.NewUserHandler(userRepo)
+		
+			// 7. Build the full Gin router and atomically swap it in
+			fullRouter := router.Setup(authHandler, userHandler, jwtService)
+			handler.swap(fullRouter)
+		
+			log.Println("Application fully initialized — all API routes are active")
+		}
+	} 
+	
+	if initErr != nil {
+		// If initialization failed (e.g. missing JWT_SECRET), we swap in an error handler
+		// so the server stays alive and Railway healthcheck can see what's wrong!
+		errMux := http.NewServeMux()
+		errMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(w, "Server Configuration Error: %v\n", initErr)
+		})
+		handler.swap(errMux)
+		log.Printf("Application failed to initialize: %v", initErr)
+	}
 
 	// 8. Block until OS interrupt (graceful shutdown)
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)

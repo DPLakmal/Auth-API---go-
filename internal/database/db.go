@@ -16,9 +16,9 @@ import (
 // It retries the connection with exponential backoff for up to ~60 seconds
 // to survive race conditions where the DB container starts after the API
 // (common on Railway and other container platforms).
-func Connect(dsn string) *gorm.DB {
+func Connect(dsn string) (*gorm.DB, error) {
 	if dsn == "" {
-		log.Fatal("DATABASE_URL is not set — add a PostgreSQL service in Railway and link it to this service")
+		return nil, fmt.Errorf("DATABASE_URL is not set — add a PostgreSQL service in Railway and link it to this service")
 	}
 
 	var db *gorm.DB
@@ -44,7 +44,7 @@ func Connect(dsn string) *gorm.DB {
 		}
 
 		if attempt == maxAttempts {
-			log.Fatalf("Could not connect to database after %d attempts: %v", maxAttempts, err)
+			return nil, fmt.Errorf("could not connect to database after %d attempts: %v", maxAttempts, err)
 		}
 
 		log.Printf("DB not ready (attempt %d/%d): %v — retrying in %s...", attempt, maxAttempts, err, backoff)
@@ -61,9 +61,9 @@ func Connect(dsn string) *gorm.DB {
 	}
 
 	if err := db.AutoMigrate(&models.User{}, &models.RefreshToken{}); err != nil {
-		log.Fatalf("Auto-migration failed: %v", err)
+		return nil, fmt.Errorf("auto-migration failed: %v", err)
 	}
 
 	fmt.Println("Database connected and migrations applied successfully")
-	return db
+	return db, nil
 }
