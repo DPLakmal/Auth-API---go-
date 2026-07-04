@@ -104,6 +104,12 @@ func main() {
 		// so the server stays alive and Railway healthcheck can see what's wrong!
 		errMux := http.NewServeMux()
 		errMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/health" {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				fmt.Fprintf(w, `{"status":"error","message":%q}`, initErr.Error())
+				return
+			}
 			w.WriteHeader(http.StatusInternalServerError)
 			fmt.Fprintf(w, "Server Configuration Error: %v\n", initErr)
 		})
